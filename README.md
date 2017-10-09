@@ -1,2 +1,2 @@
-# islr
+# ISLR
 My work on ISLR
