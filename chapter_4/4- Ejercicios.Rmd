@@ -1,0 +1,151 @@
+---
+title: "ISLR 4: Classification"
+output: html_notebook
+---
+```{r echo = FALSE, warning = FALSE}
+library(ISLR)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(GGally)
+library(purrr)
+library(caret)
+library(class)
+```
+
+#Question 10
+This question should be answered using the `Weekly` data set, which is part of the `ISLR` package. This data is 
+similar in nature to the `Smarket` data from this chapter’s lab, except that it contains 1,089 weekly returns for 
+21 years, from the beginning of 1990 to the end of 2010.
+
+**(a)** Produce some numerical and graphical summaries of the `Weekly` data. Do there appear to be any patterns?
+```{r}
+glimpse(Weekly)
+ggpairs(Weekly)
+```
+
+**(b)** Use the full data set to perform a logistic regression with `Direction` as the response and the five lag
+variables plus `Volume as predictors. Use the summary function to print the results. Do any of the predictors 
+appear to be statistically significant? If so, which ones?
+```{r}
+lr_q10b <- train(Direction ~ Lag1 + Lag2 + Lag3 + Lag4 + Lag5 + Volume,
+                 data = Weekly,
+                 method = 'glm',
+                 family = 'binomial')
+lr_q10b$finalModel
+summary(lr_q10b)
+```
+Sólo Lag2 tiene un valor p pequeño, y aún así es cuestionable que sea estadísticamente significativo.
+
+**(c)** Compute the confusion matrix and overall fraction of correct predictions. Explain what the confusion matrix 
+is telling you about the types of mistakes made by logistic regression.
+```{r}
+predictions_m10b <- predict(lr_q10b)
+table(predictions_m10b, Weekly$Direction) %>%
+  confusionMatrix()
+```
+El modelo tiene *accuracy* de 56%. Sin embargo, es mucho mejor identificando que el mercado subirá (92%) 
+a que bajará (11%). Más aún, con 56% de *negative predictive value*, si en determinado día el modelo predijo
+que el mercado subirá, sólo en el 56% de las ocasiones verdaderamente lo hará. 
+De ambas observaciones podemos concluir que el modelo está diciendo demasiado que el mercado subirá, y por eso
+es mejor "identificando" los días, aunque en realidad las predicciones no son mucho mejores que adivinar al azar.
+
+**(d)** Now fit the logistic regression model using a training data period from 1990 to 2008, with `Lag2` as the 
+only predictor. Compute the confusion matrix and the overall fraction of correct predictions for the held out data 
+(that is, the data from 2009 and 2010).
+```{r}
+train_wkl <- Weekly %>%
+  filter(Year <= 2008)
+
+lr_q10d <- train(Direction ~ Lag2, 
+                 data = train_wkl,
+                 method = 'glm',
+                 family = 'binomial')
+
+test_wkl <- Weekly %>%
+  filter(Year > 2008)
+
+predictions_m10d <- predict(lr_q10d, test_wkl)
+
+table(predictions_m10d, test_wkl$Direction) %>%
+  confusionMatrix()
+```
+Curiosamente, usando sólo `Lag2` sube la *accuracy* general del modelo, al igual que su capacidad para detectar
+días en que el mercado baja. La proporción de días en que el mercado subió y el modelo lo predijo es menor, pero
+con un *negative predictive value* de 62%, cuando el modelo dice que el mercado va a subir ahora es 6% más probable
+que en realidad lo haga.
+
+**(e)** Repeat (d) using LDA.
+```{r warning = FALSE}
+lda_q10e <- train(Direction ~ Lag2, 
+                  data = train_wkl, 
+                  method = 'lda')
+
+predictions_m10e <- predict(lda_q10e, test_wkl)
+
+table(predictions_m10e, test_wkl$Direction) %>%
+  confusionMatrix()
+```
+El modelo es prácticamente el mismo. Misma **accuracy**, misma sensibilidad, especificidad y *negative predictive * 
+*value*.
+
+**(f)** Repeat (d) using QDA.
+```{r warning = FALSE}
+lda_q10f <- train(Direction ~ Lag2, 
+                  data = train_wkl, 
+                  method = 'qda')
+
+predictions_m10f <- predict(lda_q10f, test_wkl)
+
+table(predictions_m10f, test_wkl$Direction) %>%
+  confusionMatrix()
+```
+El QDA de plano predijo que diario iba a subir el mercado. 
+
+**(g)** Repeat (d) using KNN with K = 1.
+```{r}
+q10g_train_x <- train_wkl %>%
+  dplyr::select(-Direction)
+
+q10g_test_x <- test_wkl %>%
+  dplyr::select(-Direction)
+
+onenn_q10g <- knn(q10g_train_x, q10g_test_x, train_wkl$Direction, k = 1)
+
+table(onenn_q10g, test_wkl$Direction) %>%
+  confusionMatrix()
+```
+KNN con K = 1 da los mejores resultados hasta ahora. La *accuracy* subió a 79%, y la sensibilidad y especificidad
+se balancearon más: 86% y 75% respectivamente. Lo que más vale la pena recalcar es que si el modelo predice que el
+mercado subirá en determinado día, la probabilidad de que de verdad lo haga (en el test set) es de 88%, la más
+alta hasta ahora. También es el primer modelo que predice sustancialmente mejor las subidas que las bajadas.
+
+**(i)** Experiment
+```{r}
+knn_q10i <- train(Direction ~ Lag2, 
+                  data = train_wkl,
+                  method = 'knn')
+
+predictions_m10i <- predict(knn_q10i, test_wkl)
+
+table(predictions_m10i, test_wkl$Direction) %>%
+  confusionMatrix()
+```
+KNN con `caret` no resultó mejor que KNN manual con K = 1.
+
+```{r}
+twonn_q10g <- knn(q10g_train_x, q10g_test_x, train_wkl$Direction, k = 2)
+
+table(twonn_q10g, test_wkl$Direction) %>%
+  confusionMatrix()
+```
+KNN con K = 2 mejoró.
+
+```{r}
+threenn_q10g <- knn(q10g_train_x, q10g_test_x, train_wkl$Direction, k = 3)
+
+table(threenn_q10g, test_wkl$Direction) %>%
+  confusionMatrix()
+```
+
+KNN con K = 3 mejora incluso más.

@@ -1,0 +1,115 @@
+---
+title: "3. Linear regression"
+output: html_notebook
+---
+
+Exercises for chapter three of An Introduction to Statistical Learning.
+```{r}
+library(MASS)
+library(ISLR)
+```
+
+##Pregunta 8
+8. This question involves the use of simple linear regression on the *Auto* data set.
+  (a) Use the *lm()* function to perform a simple linear regression with *mpg* as the   
+  response and *horsepower* as the predictor. Use the *summary()* function to print the r
+  esults. Comment on the output.
+  
+```{r}
+q8.a = lm(mpg~horsepower, data = Auto)
+summary(q8.a)
+predict(q8.a, data.frame(horsepower=c(98)), interval = "confidence")
+```
+Observemos que el bajo valor p da evidencia fuerte de una relación entre el predictor
+y la respuesta. El valor de R^2 indica que podemos explicar 60% de la variación en
+las millas por galón por los caballos de fuerza; y la pendiente negativa indica que 
+mientras menos caballos de fuerza tenga el auto, más rinde.
+Para poner ejemplos numéricos, con 98 caballos de fuerza el coche rendiría 24.47 millas
+por galón según la estimación.
+Los intervalos de confianza indican que con 95% de probabilidades, el valor real está
+entre 23.973 y 24.961 millas por galón.
+
+(b) Grafique la respuesta y el predictor, usando *abline()* para mostrar también la
+recta de mínimos cuadrados.
+```{r}
+with(Auto, plot(horsepower, mpg))
+abline(q8.a, lw = 3, col="blue")
+```
+(c) Use *plot()* para producir gráficas diagnósticas de la regresión por mínimos 
+cuadrados. Comente.
+```{r}
+par(mfrow = c(2,2))
+plot(q8.a)
+```
+La gráfica de residuos contra valores muestra un patrón claro, sugiriendo no-linealidad
+en los datos. La gráfica de residusos estandarizados parece corroborar el supuesto de
+heterocedasticidad.
+La observación 334 tiene un valor muy alto en la gráfica de residuos estandarizados.
+
+
+##Pregunta 9
+This question involves the use of multiple linear regression on the *Auto* data set.
+
+(a) Produce a scatterplot matrix which includes all of the variables in the data set
+```{r}
+pairs(Auto)
+```
+(b) Compute the matrix of correlations between the variables using the function *cor()*.
+You will need to exclude the *name* variable, which is qualitative.
+```{r}
+cor(Auto[sapply(Auto, function(x) is.numeric(x))])
+```
+(c) Use *lm()* to perform a multiple linear regression with *mpg* as the response and all
+other variables except *name* as predictors. Print a summary and comment.
+```{r}
+q9.c = lm(mpg~.-name, data=Auto)
+summary(q9.c)
+```
+Hay evidencia de que el peso, el año y el lugar de origen del auto tienen una correlación
+fuerte con las millas por galón que rinde el auto. El coeficiente de año sugiere que los
+autos modernos son cada vez más eficientes.
+
+(d) Produce and comment diagnostic plots for the regression.
+```{r}
+par(mfrow = c(2,2))
+plot(q9.c)
+```
+En la gráfica de residuos muestra un poco de no-linealidad. 
+La gráfica de residuos contra apalancamineto muestra tres puntos 
+problemáticos: el 14, el 327 y el 394. A continuación reevaluamos la regresión
+eliminando cada uno de ellos.
+```{r}
+AutoArreglado = Auto[-14,]
+q9.d = lm(mpg~ .-name, data=AutoArreglado)
+summary(q9.d)
+par(mfrow=c(2,2))
+plot(q9.d)
+```
+
+(e) Try regression models with interaction terms using interaction terms. Do any of them
+appear significant?
+```{r}
+q9.e = lm(mpg~.-name+weight:acceleration, data=AutoArreglado)
+summary(q9.e)
+```
+(f) Try a few different transformations of the variables. Comment on your findings.
+```{r}
+Auto2 = AutoArreglado[-29, ]
+q9.f = lm(mpg ~.-name+weight:acceleration-cylinders+cylinders^2-displacement+displacement:displacement, data = Auto2)
+summary(q9.f)
+plot(q9.f)
+```
+
+
+
+#Pregunta 10
+This cuestion should be answered using the *Carseats* data set.
+(a) Find a multiple regression model to predict *Sales* using *Price*, *Urban* and *US*
+```{r}
+?Carseats
+q10.a = lm(Sales~Price+Urban+US, data=Carseats)
+summary(q10.a)
+par(mfrow = c(2,2))
+plot(q10.a)
+```
+

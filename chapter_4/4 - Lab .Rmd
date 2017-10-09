@@ -1,0 +1,136 @@
+---
+title: "ISLR Lab 4: Classification"
+output: html_notebook
+---
+```{r echo = FALSE, message = FALSE}
+library(ISLR)
+library(tidyr)
+library(purrr)
+library(dplyr)
+library(ggplot2)
+library(caret)
+library(GGally)
+```
+
+We will begin by examining some numerical and graphical summaries of the `Smarket` data, which is part of the 
+`ISLR` library. 
+
+```{r}
+glimpse(Smarket)
+head(Smarket)
+cor(Smarket[, -9]) %>%
+  ggcorr(label = TRUE)
+```
+Next, we will fit a logistic regression model in order to predict `Direction` using `Lag1` through `Lag5` and
+`Volume`.
+```{r}
+
+caret_lr <- train(Direction ~ Lag1 + Lag2 + Lag3 + Lag4 + Lag5 + Volume,
+                  data = Smarket,
+                  method = 'glm',
+                  family = 'binomial')
+summary(caret_lr)
+```
+The `predict()` function can be used to predict the probability that the market will go up, given values of the 
+predictors. The type="prob" option tells `caret` to output probabilities of the form $P(Y = 1|X)$, as opposed to 
+other information such as the logit. If no data set is supplied to the `predict()` function, then the probabilities
+are computed for the training data that was used to fit the logistic regression model. 
+```{r}
+predicted_probabilities <- predict(caret_lr, type = 'raw')
+head(predicted_probabilities)
+```
+```{r}
+table(predicted_probabilities, Smarket$Direction)
+```
+```{r}
+train <- Smarket %>%
+  filter(Year <2005)
+test <- Smarket %>%
+  filter(Year == 2005)
+
+model_data_split <- train(Direction ~ Lag1 + Lag2 + Lag3 + Lag4 + Lag5 + Volume,
+                          method = 'glm',
+                          family = 'binomial',
+                          data = train)
+new_predictions <- predict(model_data_split, test)
+mean(new_predictions != test$Direction)
+
+```
+LDA:
+```{r}
+lda_model <- train(Direction ~ Lag1 + Lag2, 
+                   method = 'lda',
+                   data = train)
+confusionMatrix(test$Direction, predict(lda_model, test))
+lda_model$finalModel
+predictions <- predict(lda_model, test)
+predictions_prob <- predict(lda_model, test, type = 'prob')
+table(predictions, test$Direction)
+mean(predictions == test$Direction)
+sum(predictions_prob[,1] > .9)
+```
+QDA
+```{r}
+qda_model <- train(Direction ~ Lag1 + Lag2, 
+                   method = 'qda',
+                   data = train)
+predict_qda <- predict(qda_model, test)
+mean(predict_qda == test$Direction)
+```
+KNN
+```{r}
+knn_model <- train(Direction ~ Lag1 + Lag2,
+                   method = 'knn',
+                   data = train,
+                   preProcess = c('center', 'scale'))
+predict_knn <- predict(knn_model, test)
+table(predict_knn, test$Direction)
+mean(predict_qda == test$Direction)
+```
+APLICACIÓN: usando caret
+```{r}
+nzv <- nearZeroVar(Caravan)
+caravan_clean <- Caravan[,-nzv]
+split_index <- createDataPartition(caravan_clean$Purchase, p = 0.75, list = FALSE)
+train_crv <- caravan_clean[split_index,]
+test_crv <- caravan_clean[-split_index,]
+ctrl <- trainControl(method="repeatedcv",repeats = 3)
+knn_crv <- train(Purchase ~ .,
+                 data = train_crv,
+                 method = 'knn',
+                 preProcess = c('center', 'scale'),
+                 trControl = ctrl,
+                 tuneLength = 15)
+predictions_crv <- predict(knn_crv, test_crv)
+table(predictions_crv, test_crv$Purchase)
+mean(predictions_crv == test_crv$Purchase)
+
+```
+
+APLICACIÓN: SIN USAR CARET
+```{r}
+##Ahora con algo clásico
+library(class)
+train_crv_nc <-  train_crv %>%
+  select( -Purchase) %>%
+  scale()
+test_crv_nc <- test_crv %>%
+  select(-Purchase) %>%
+  scale()
+
+knn_crv_nc_1 <- knn(train = train_crv_nc, test = test_crv_nc, cl = train_crv$Purchase, k = 1)
+(t1 <- table(knn_crv_nc_1, test_crv$Purchase))
+mean(knn_crv_nc_1 == test_crv$Purchase)
+t1[4] / (t1[4]+ t1[2])
+
+knn_crv_nc_3 <- knn(train = train_crv_nc, test = test_crv_nc, cl = train_crv$Purchase, k = 3)
+(t3 <- table(knn_crv_nc_3, test_crv$Purchase))
+mean(knn_crv_nc_3 == test_crv$Purchase)
+t1[4] / (t1[4]+ t1[2])
+
+knn_crv_nc_5 <- knn(train = train_crv_nc, test = test_crv_nc, cl = train_crv$Purchase, k = 5)
+(t5 <- table(knn_crv_nc_5, test_crv$Purchase))
+mean(knn_crv_nc_5 == test_crv$Purchase)
+t5[4] / (t5[4]+ t5[2])
+```
+

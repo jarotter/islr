@@ -1,0 +1,210 @@
+---
+title: "ISLR 5: Resampling methods — Exercises"
+output: html_notebook
+---
+```{r message = FALSE, warning = FALSE, echo = FALSE}
+library(ISLR)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(caret)
+library(purrr)
+library(boot)
+```
+
+#Conceptual 
+##Question 2
+We will now derive the probability that a given observation is part of a bootstrap sample. Suppose that we obtain a bootstrap sample from a set of $n$ observations.
+**(a)** What is the probability that the first bootstrap observation is not the *j*th observation from the 
+original sample? Justify your answer.
+\[
+P(b_1 \not= x_j) = 1-P(b_1 = x_j) = 1-\frac{1}{n}
+\]
+Because each $b_i$ from the boostrap was sampled assuming a discrete uniform distribution from $\{x_1 \dots x_n \}$
+
+**(b)** What is the probability that the second bootstrap observation is not the jth observation from the original 
+sample?
+It's just the same as above, since we are sampling with replacement.
+
+**(c)** Argue that the probability that the *j*th observation is not in the bootstrap sample is $(1 − 1/n)^n$.
+Fixing j and varying $k$ in $[1,n] \cap \mathbb{N}$
+\[
+P(x_j \not = b_k) = P(x_j \not = b_1 \wedge \dots \wedge x_j \not= b_n ) = P(x_j\not=b_1)\dots P(x_j \not= b_n) =
+\left( 1 - \frac{1}{n} \right) ^n
+\]
+Because the samples are independent from each other.
+
+**(d)** When $n = 5$, what is the probability that the *j*th observation is in the bootstrap sample?
+```{r eval = TRUE}
+1-(1-1/5)^5
+
+```
+
+**(e)** When $n = 100$, what is the probability that the *j*th observation is in the bootstrap sample?
+```{r eval = TRUE}
+1-(1-1/100)^100
+
+```
+
+**(f)** When $n = 10,000$ what is the probability that the *j*th observation is in the bootstrap sample?
+```{r eval = TRUE}
+1 -(1-1/10000)^10000
+```
+
+**(g)** Create a plot that displays, for each integer value of $n$ from 1 to 100,000, the probability that the 
+*j*th observation is in the bootstrap sample. Comment on what you observe.
+```{r}
+x <- seq(1, 10000)
+y <- rep(1,10000) - (rep(1,10000) - 1/x)^x
+df <- data_frame(x = x, y = y)
+ggplot(df, aes(x = x, y = y)) +
+  geom_point(alpha = 0.05)
+```
+As we can see, the probability decreases very quickly at around observation 70 and stabilizes at around 0.6351.
+
+**(h)** We will now investigate numerically the probability that a bootstrap sample of size $n = 100$ contains 
+the *j*th observation. Here $j = 4$. We repeatedly create bootstrap samples, and each time we record whether or 
+not the fourth observation is contained in the bootstrap sample.
+```{r}
+store <- rep(NA, 10000)
+for(j in 1:10000){
+  store[j] <- sum(base::sample(1:100, rep = TRUE) == 4) > 0
+}
+mean(store)
+```
+As expected, the probability that the bootstrap sample contains the required observation, is near the 0.635
+described above.
+
+
+##Question 3
+We now review k-fold cross-validation.
+**(a)** Explain how *k*-fold cross-validation is implemented.
+The data set is divided into *k* different nonoverlapping subsets of approximately the same size. Each one of those sets is used as a validation set, in the sense that the model is fitted *k* times, and in each one of them one of 
+the folds is left out. The error is then calculated for every model and averaged along all values of *k*.
+
+**(b)** What are the advantages and disadvantages of k-fold cross-validation relative to:
+i. the validation set approach
+  *k*-fold has the advantage of reducing the bias of arbitrarily choosing just one validation set which tends to
+  underestimate the true error of the model on the entire data set, but is $k-1$ times more computationally 
+  expensive.
+ii. LOOCV
+  *k*-fold reduces the variance associated with LOOCV, which of course is greater because of the high overlap 
+  between training sets, which makes the different models correlated and the variance of the sum of correleated
+  variables increases with covariance: 
+  \[
+  \mathrm{Var} \left[ \sum_{j = 1}n X_j \right] = \sum_{1 \leq i < j \leq n} \mathrm{Cov}(X_j,X_i)
+  \]
+  
+##Question 4
+Suppose that we use some statistical learning method to make a prediction for the response $Y$ for a particular 
+value of the predictor $X$. Carefully describe how we might estimate the standard deviation of our prediction.
+
+We can use the bootstrap method. To do this, we take $B$ samples of size $n$ (the size of the data set) of the
+original data (with replacement, of course) and train the model with each of the $B$ different data sets. We
+then calculate the deviation of each model and average across all of them.
+
+#Applied (selected)
+##Question 6
+We continue to consider the use of a logistic regression model to predict the probability of `default` using 
+`income` and `balance` on the Default data set. In particular, we will now compute estimates for the standard 
+errors of the `income` and `balance` logistic regression coefficients in two different ways: (1) using the 
+bootstrap, and (2) using the standard formula for computing the standard errors in the `glm()` function. Do not 
+forget to set a random seed before beginning your analysis.
+Using the summary() and glm() functions, determine the esti- mated standard errors for the coefficients associated with income and balance in a multiple logistic regression model that uses both predictors.
+
+**(a)** Using the `summary()` and `glm()` functions, determine the estimated standard errors for the coefficients 
+associated with income and balance in a multiple logistic regression model that uses both predictors.
+```{r}
+glm_fit <- glm(default ~ income + balance,
+               data = Default,
+               family = binomial)
+summary(glm_fit)
+```
+
+**(b)** Write a function, `boot_fn()`, that takes as input the Default data set as well as an index of the 
+observations, and that outputs the coefficient estimates for income and balance in the multiple logistic 
+regression model. (APPROACH USING `boot`)
+
+```{r}
+boot_fn <- function(data, index){
+  model <- glm(default ~ income + balance,
+               data = data,
+               subset = index,
+               family = binomial)
+  return(coef(model))
+}
+```
+
+**(c)** Use the `boot()` function together with your `boot.fn()` function to estimate the standard errors of the 
+logistic regression coefficients for `income` and `balance.
+```{r}
+boot(Default, boot_fn, R = 1000)
+```
+**(d)** Comment on the estimated standard errors obtained using the `glm()` function and using your bootstrap 
+function.
+The bootstrap approximation was pretty good.
+
+**(e)** repeat (b) and (c) using the tidy approach.
+```{r}
+fn_model <- function(data){
+   model <- glm(default ~ income + balance,
+               data = data,
+               family = binomial)
+  return(model)
+}
+Default %>%
+  bootstraps(1000) %>%
+  mutate(model = map(splits, fn_model)) %>%
+  mutate(param = map(model, tidy)) %>%
+  select(id, param) %>%
+  unnest() %>%
+  group_by(term) %>%
+  summarize(estimate = mean(estimate), std_error = mean(std.error)) %>%
+  print()
+```
+
+##Question 8
+**(a)** Generate a simulated data set as follows:
+```{r}
+set.seed(1)
+y <- rnorm(100)
+x <- rnorm(100)
+y <- x -2*x^2 + rnorm(100)
+```
+
+(b) Create a scatterplot of $X$ against $Y$. Comment on what you find.
+```{r}
+data <- data_frame(x = x, y = y)
+ggplot(data, aes(x = x, y = y)) +
+  geom_point()
+```
+The data clearly looks like an upside down parabola. I expect the cuadratic polynomial to fit 
+best.
+
+**(c)** Set a random seed, and then compute the LOOCV errors that result from fitting, using least squares, polynomials of degrees one through of on x:
+```{r}
+set.seed(2283)
+errors <- rep(0, 4)
+for(d in 1:4){
+  pold <- glm(y ~ poly(x, degree = d), data = data)
+  errors[d] <- cv.glm(data, pold)$delta[1]
+}
+print(errors)
+```
+
+**(d)**  Repeat (c) using another random seed, and report your results. Are your results the same 
+as what you got in (c)? Why?
+They are the same. Since we are using LOOCV, there is absolutely nothing random about the process.
+
+**(e)** Which of the models in (c) had the smallest LOOCV error? Is this what you expected? 
+Explain your answer.
+As expected, the cuadratic polynomial that matches the true form of the data.
+
+**(f)** Comment on the statistical significance of the coefficient estimates that results from 
+fitting each of the models in (c) using least squares. Do these results agree with the 
+conclusions drawn based on the cross-validation results?
+```{r}
+summary(glm(y ~ poly(x, 4)))
+```
+Yes. The only predictor with a significantly low p-value is the quadratic term, just like CV 
+suggested.

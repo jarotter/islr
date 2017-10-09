@@ -1,0 +1,112 @@
+---
+title: "ISLR6 - Lab 1: Feature selection "
+output: html_notebook
+author: Jorge Rotter
+---
+
+This lab on Subset Selection in R comes from p. 244-247 of "Introduction to Statistical Learning with 
+Applications in R" by Gareth James, Daniela Witten, Trevor Hastie and Robert Tibshirani. It was, however, 
+rewritten for using the `caret` package. It was adapted for use of the `caret` package.
+
+```{r echo = FALSE, warning = FALSE}
+library(ISLR)
+library(plyr)
+library(caret)
+library(dplyr)
+
+```
+
+
+#Introduction
+
+Here we apply the best subset selection approach to the Hitters data. We wish to predict a baseball player’s 
+Salary on the basis of various statistics associated with performance in the previous year. Let's take a quick 
+look:
+
+```{r warning=FALSE, echo = FALSE}
+library(ISLR)
+library(caret)
+library(dplyr)
+head(ISLR::Hitters)
+```
+
+First of all, we note that the `Salary` variable is missing for some of the players. The `is.na()` function can 
+be used to identify the missing observations. It returns a vector of the same length as the input vector, with a 
+`TRUE` value for any elements that are missing, and a `FALSE` value for non-missing elements.
+The `sum()` function can then be used to count all of the missing elements:
+
+```{r}
+sum(is.na(ISLR::Hitters$Salary))
+```
+
+We see that `Salary` is missing for 59 players. The `na.omit()` function removes all of the rows that have
+missing values in any variable. Alternatively, caret can do median imputation or knn imputation (which of course
+we are not doing, since `Salary` is our response.)
+
+```{r}
+# Print the dimensions of the original Hitters data (322 rows x 20 columns)
+dim(ISLR::Hitters)
+
+# Drop any rows the contain missing values
+Hitters <- na.omit(ISLR::Hitters)
+
+# Print the dimensions of the modified Hitters data (263 rows x 20 columns)
+dim(Hitters)
+
+# One last check: should return 0
+sum(is.na(Hitters))
+```
+
+#Recursive feature elimination (Backwards Selection)
+`caret` has several algorithms for feature selection. We'll go through RFE first. Caret has two functions for
+performing RFE. `rfeIter` and `rfe`. Although strictly speaking `rfeIter` is the algorithm covered by the book,
+the `rfe` function includes a cross-validation approach to simplify what is done in pages 250-251. As such, we'll
+focus in `rfe` only.
+
+We first create a control object to specify that we wish to use 10-fold cross validation (5 times) to perform 
+variable selection in a linear model (hence the `lmFuncs`. There are also prebuilt `rfFuncs`, `nbFuncs`, 
+`treebagFuncs` and `caretFuncs`).
+
+```{r}
+set.seed(1)
+rfe_control <- rfeControl(functions = lmFuncs,
+                          method = "repeatedcv",
+                          number = 10,
+                          repeats = 5,
+                          verbose = FALSE)
+
+training_index <- createDataPartition(Hitters$Salary, p = 0.75, list = FALSE)
+prim_index_train <- sample(c(TRUE,FALSE), nrow(Hitters),rep=TRUE)
+prim_index_test <- !prim_index_train
+
+training_set <- Hitters[traino,] %>%
+  select(-Salary)
+training_set_mm <- model.matrix(~., data = training_set)[,-1]
+
+test_set <- Hitters[!traino,] %>% 
+  select(-Salary)
+test_set_mm <- stats::model.matrix(~., data = test_set)[,-1]
+
+training_values <- Hitters[traino,]$Salary
+
+model <- rfe(x = training_set_mm, 
+    y = training_values,
+    sizes = c(1:ncol(training_set_mm)),
+    rfeControl = rfe_control)
+model
+```
+
+#Genetic algorithms
+```{r}
+gafs_control <- gafsControl(functions = caretGA ,
+                    method = 'repeatedcv',
+                    number = 2,
+                    repeats = 2,
+                    verbose = TRUE)
+model_ga <- gafs(x = training_set_mm,
+                 y = training_values,
+                 iters = 2,
+                 gafsControl = gafs_control,
+                 method = 'lm')
+```
+

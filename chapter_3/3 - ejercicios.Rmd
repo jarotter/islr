@@ -1,0 +1,509 @@
+---
+title: 'ISLR 3: Linear regression'
+author: "Jorge Rotter"
+output:
+  html_document: default
+  html_notebook: default
+---
+
+```{r echo = FALSE, message = FALSE}
+library(ISLR)
+library(dplyr)
+library(tidyr)
+library(car)
+library(MASS)
+library(ggplot2)
+library(GGally)
+library(ggfortify)
+library(purrr)
+select <- dplyr::select
+```
+
+## Question 8
+This question involves the use of simple linear regression on the `Auto` data set.
+
+**(a)** Use the `lm` function to perform a simple linear regression with `mpg` as the response and `horsepower` as the predictor. Use the `summary` function to print the results. Comment on the output.
+```{r}
+q8 <- lm(mpg ~ horsepower, data = Auto)
+summary(q8)
+```
+Hay una correlación negativa mediana entre ambas. Por el bajo valor p, concluimos que la relación es 
+estadísticamente significativa.
+
+**(b)** Plot the response and the predictor
+```{r}
+p <- ggplot(Auto, aes(x = horsepower, y = mpg)) +
+  geom_point() +
+  geom_smooth(method = 'lm')
+p
+```
+**(c)**
+
+Use the `plot` function to produce diagnostic plots of the least squares regression fit. Comment on any problems you see with the fit.
+```{r}
+autoplot(q8, which = 1:4)
+```
+De la primera gráfica podemos ver evidencias de no-linealidad, pues los residuos siguen un patrón de parábola. La 
+gráfica cuantil-cuantil vemos que los datos en su mayoría sí son normales. De la tercera gráfica suponemos 
+heterocedasticidad (que revisaremos a continuación con la prueba de Breusch-Pagan), pues los datos están más 
+dispersos antes del quince y menos dispersos después. De la última vemos que la observación 117 es un punto de 
+alto apalancamiento.
+```{r}
+ncvTest(q8)
+```
+De esta prueba vemos que el pequeño valor p efectivamente nos lleva a rechazar la hipótesis de homocedasticidad.
+Ahora bien, graficando de nuevo pero haciendo énfasis en las observaciones 117 y 94
+```{r}
+puntos_raros <- Auto[c(94, 117), ]
+p + geom_point(data = puntos_raros, aes(x = horsepower, y = mpg), colour = 'red')
+```
+Finalmente, eliminando ambas observaciones del modelo para ver qué obtenemos.
+```{r}
+sin_raros <- Auto[-c(94, 117), ]
+q8_sin_raros <- lm(mpg ~ horsepower, data = sin_raros)
+summary(q8_sin_raros)
+```
+No mejoró. 
+
+## Question 9
+
+This question involves the use of multiple linear regression on the `Auto` data set.
+
+**(a)** Produce a scatterplot matrix which includes all of the variables in the data set.
+```{r echo = FALSE}
+Auto %>% 
+  select(-name) %>%
+  ggpairs(lower = list(continuous = wrap("points", alpha = 0.3)))
+```
+**(b)** Compute the matrix of correlations between the variables using the function cor(). You will need to exclude the name variable, which is qualitative.
+```{r}
+Auto %>%
+  select(-name) %>%
+  ggcorr(label = TRUE)
+```
+**(c)** Use the `lm()` function to perform a multiple linear regression with `mpg` as the response and all other variables except `name` as the predictors. Use the `summary() function to print the results. Comment on the output. For instance:
+```{r}
+model_q9c <- lm(mpg ~ . - name, data = Auto)
+summary(model_q9c)
+```
+Las únicas variables estadísticamente significativas son `weight`, `year` y `origin`, posiblemente también 
+`displacement`. El coeficiente de `year` sugiere que conforme pasan los años, se construyen autos más rendidores.
+
+**(d)** Use the `plot()` function to produce diagnostic plots of the linear regression fit. Comment on any problems you see with the fit. Do the residual plots suggest any unusually large outliers? Does the leverage plot identify any observations with unusually high leverage?
+```{r}
+autoplot(model_q9c, which = c(1:6))
+```
+De la priemra gráfica podemos concluir que hay una relación no-lineal que el modelo no está capturando. De la 
+segunda, que la distribución de los residuos no es normal; de hecho tiene una joroba pequeñita a la derecha. 
+De la tercera parece que la varianza de los residuos no es constante; de hecho es más pequeña antes del quince.
+Por último, la observación 14 tiene mucho apalancamiento pero no tan alto residuo.
+Graficando las extra de `autoplot()` vemos que las observaciones 327 y 394 tienen Cook's Distance relativamente 
+alta pero no preocupantemente alta.
+
+**(e)** Use the `*` and `:` symbols to fit linear regression models with interaction effects. Do any interactions appear to be statistically significant?
+```{r}
+model_q9e <- lm(mpg ~ weight + year + displacement*weight + acceleration*horsepower, data = Auto)
+summary(model_q9e)
+```
+Las interacciones `acceleration:horsepower` y `weight:displacement` son estadísticamente significativas.
+Sin embargo, el modelo es peor, como podemos ver en las gráficas diagnósticas de `autoplot()`
+
+**(f)**Try a few different transformations of the variables, such as `log(X)`, `√X` Comment on your findings.
+```{r}
+model_q9f <- lm(mpg ~ log(weight) + year + log(acceleration*horsepower), data = Auto)
+summary(model_q9f)
+autoplot(model_q9f)
+```
+Pues no logro encontrar lo no-lineal, pero es claro que existe.
+
+##Question 10
+This question should be answered using the `Carseats` data set.
+
+**(a)** Fit a multiple regression model to predict `Sales` using `Price`,`Urban`, and `US`.
+```{r}
+model_10a <- lm(Sales ~ Price + Urban + US, data = Carseats)
+```
+
+**(b)** Provide an interpretation of each coefficient in the model. Becareful—some of the variables in the model 
+are qualitative!
+```{r}
+summary(model_10a)
+```
+Por cada dolar que suba el precio, las ventas disminuiran en 500 unidades en promedio. Además, en las tiendas
+urbanas se venden en promedio 220 sillas menos que en las no urbanas, pero en las tiendas en EEUU se venden
+al rededor de 1000 sillas más.
+
+**(d)** For which of the predictors can you reject the null hypothesis H0 : βj = 0?
+
+Podemos rechazar la hipótesis nula en `Price` y `US`.
+
+**(e)** On the basis of your response to the previous question, fit a smaller model that only uses the predictors for which there is evidence of association with the outcome.
+```{r}
+model_10e <- lm(Sales ~ Price + US, data = Carseats) 
+summary(model_10e)
+autoplot(model_10e)
+```
+El modelo efectivamente captura las relaciones; pues los errores sí siguen una normal con media 0 y varianza
+constante. Además, parece no haber puntos de alto apalancamiento.
+
+**(g)** Using the model from (e), obtain 95% confidence intervals for the coefficient(s).
+confi
+```{r}
+confint(model_10e, level = 0.95)
+```
+**(h)** Is there evidence of outliers or high leverage observations in the model from (e)?
+
+No realmente. La gráfica de residuos estandarizados contra apalancamiento muestra que casi todos tienen 
+bajo apalancamiento (salvo un punto con alto apalancamiento relativo pero igual tiene pequeña distancia de Cook.)
+
+##Question 11
+In this problem we will investigate the t-statistic for the null hypothesis H0 : β = 0 in simple linear regression
+without an intercept. To begin, we generate a predictor x and a response y as follows.
+```{r}
+set.seed(1)
+x <- rnorm(100)
+y <- 2*x + rnorm(100)
+```
+**(a)**Perform a simple linear regression of y onto x, without an in- tercept. Report the coefficient estimate β,
+the standard error of this coefficient estimate, and the t-statistic and p-value associated with the null 
+hypothesis H0 : β = 0. Comment on these results.
+```{r}
+  model_11a <- lm(y ~ x + 0)
+  summary(model_11a)
+```
+El valor p es tan pequeño que podemos rechazar la hipótesis nula certeramente.
+
+**(b)** Now perform a simple linear regression of x onto y without an intercept, and report the coefficient 
+estimate, its standard error, and the corresponding t-statistic and p-values associated with the null hypothesis 
+H0 : β = 0. Comment on these results.
+```{r}
+model_11b <- lm(x ~ y + 0)
+summary(model_11b)
+```
+Ambas regresionas dan los mismos valores de R^2, estadística t y valor p, pero el coeficiente estimado de
+y desde x es una unidad mayor al de x estaimado sobre y.
+
+##Question 12
+**(a)** Recall that the coefficient estimate $\hat{\beta}$ for the linear regression of Y onto X without an intercept is given
+by (3.38). Under what circumstance is the coefficient estimate for the regression of X onto Y the same as the 
+coefficient estimate for the regression of Y onto X?
+
+Ambos coeficientes son iguales cuando la suma de cuadrados de los $x_i$ son iguales a los de los $y_i$.
+
+**(b)** Generate an example in `R` with $n$ = 100 observations in which the coefficient estimate for the 
+regression of  $X$ onto $Y$ is *different* from the coefficient estimate for the regression of $Y$ onto $X$.
+```{r}
+x <- rnorm(100)
+y <- rnorm(100)
+coef(lm(y ~ x + 0))
+coef(lm(x ~ y + 0))
+```
+**(c)** Generate an example in R with $n$ = 100 observations in which the coefficient estimate for the regression 
+of $X$ onto $Y$ is the same as the coefficient estimate for the regression of $Y$ onto $X$.
+```{r}
+x <- rnorm(100)
+y <- sample(x)
+coef(lm(y ~ x + 0))
+coef(lm(x ~ y + 0))
+```
+
+#Question 13
+In this exercise you will create some simulated data and will fit simple linear regression models to it. Make sure
+to use `set.seed(1)` prior to starting part (a) to ensure consistent results.
+
+**(a)** Using the `rnorm()` function, create a vector, `x`, containing 100 observations drawn from a $N(0, 1)$ 
+distribution. This represents a feature, $X$.
+```{r}
+x <- rnorm(100)
+```
+
+**(b)** Using the `rnorm()` function, create a vector, `eps`, containing 100 observations drawn from a $N(0,0.25)$ distribution i.e. a normal distribution with mean zero and variance 0.25.
+```{r}
+eps <- rnorm(100, sd = 0.25)
+```
+
+**(c)** Using `x` and `eps`, generate a vector `y` according to the model 
+$$ Y = -1 + 0.5X + \epsilon $$
+```{r}
+y <- -1 + 0.5*x + eps
+```
+
+***(d)** Create a scatterplot displaying the relationship between `x` and `y`. Comment on what you observe.
+```{r}
+data.frame(x = x, y = y) %>%
+  ggplot(aes(x = x, y = y)) +
+    geom_point()
+```
+Aunque el modelo nos dice que la relación real entre ambas variables es lineal, el ruido introducido por el 
+término $\epsilon$ hace que se vea como algo extraño no-recta. También tiene que ver que hay puntos encimados
+por la naturaleza estocástica de `x`.
+
+**(e)** Fit a least squares linear model to predict `y` using `x`. Comment on the model obtained. How do 
+$\hat{\beta_0}$ and $\hat{\beta_1}$ compare to $\beta_0$ and $\beta_1$ ?
+```{r}
+model_13e <- lm(y ~ x)
+summary(model_13e)
+```
+Las aproximaciones son cercanas.
+
+**(f)** Display the least squares line on the scatterplot obtained in (d). Draw the population regression line on the plot, in a different color. Create an appropiate legend.
+```{r}
+
+data.frame(x = x, y = y ) %>%
+  ggplot(aes(x = x, y = y)) +
+    geom_point() +
+    geom_abline(aes(colour = "Population regression", slope = 0.5, intercept = -1)) +
+    stat_smooth(aes(colour = 'Least squares fit'), method = 'lm') +
+    scale_color_discrete(name = 'Model type') +
+    ggtitle("Noise ~ N(0,0.25)") +
+    theme(plot.title = element_text(hjust = 0.5))
+```
+
+**(g)** Now fit a polynomial regression model that predicts `y` using `x` and `x^2`. Is there evidence that the quadratic term improves the model fit? Explain your answer.
+```{r}
+model_13g <- lm(y ~ x + I(x^2))
+summary(model_13g)
+```
+No hay evidencia alguna de que el modelo mejore.  El valor p del coeficiente de $X^2$ no permite descartar la
+hipótesis nula y $R^2$ no mejora.
+
+**(h)** Repeat (a)–(f) after modifying the data generation process in such a way that there is *less* noise in the data. The model (3.39) should remain the same. Describe your results.
+```{r}
+x <- rnorm(100)
+eps <- rnorm(n = 100, sd = 0.10)
+y <- -1 + 0.5*x + eps
+
+model_13h <- lm(y ~ x)
+summary(model_13h)
+
+data.frame(x = x, y = y ) %>%
+  ggplot(aes(x = x, y = y)) +
+    geom_point() +
+    geom_abline(aes(colour = "Population regression", slope = 0.5, intercept = -1)) +
+    stat_smooth(aes(colour = 'Least squares fit'), method = 'lm') +
+    scale_color_discrete(name = 'Model type') +
+    ggtitle("Noise ~ N(0,0.1)") +
+    theme(plot.title = element_text(hjust = 0.5))
+
+```
+La línea de mínimos cuadrados está mucho más cercana al modelo real.
+
+**(i)** Repeat (a)–(f) after modifying the data generation process in such a way that there is *more* noise in 
+the data. The model (3.39) should remain the same. Describe your results.
+```{r}
+x <- rnorm(100)
+eps <- rnorm(n = 100, sd = 0.5)
+y <- -1 + 0.5*x + eps
+
+model_13i <- lm(y ~ x)
+summary(model_13i)
+
+data.frame(x = x, y = y ) %>%
+  ggplot(aes(x = x, y = y)) +
+    geom_point() +
+    geom_abline(aes(colour = "Population regression", slope = 0.5, intercept = -1)) +
+    stat_smooth(aes(colour = 'Least squares fit'), method = 'lm') +
+    scale_color_discrete(name = 'Model type') +
+    ggtitle("Noise ~ N(0,0.5)") +
+    theme(plot.title = element_text(hjust = 0.5))
+```
+Esta vez las aproximaciones están mucho más lejanos de los reales. Además, el coeficiente de $R^2$ más bajo
+indica que el modelo explica mucho menos de la variabilidad de los datos (introducida por el ruido) y gráficamente
+es claro que la línea es mucho menos parecida a la de población.
+
+**(j)** What are the confidence intervals for $\beta_0$ and $\beta_1$ based on the original data set, the 
+noisier data set, and the less noisy data set? Comment on your results.
+```{r}
+confint(model_13e)
+confint(model_13h)
+confint(model_13i)
+```
+Mientras más ruido hay en los datos, más grandes son los intervalos de confianza de 95%, pues el modelo está 
+menos seguro del verdadero valor de los coeficientes.
+
+##Question 14
+This problem focuses on the *collinearity* problem.
+
+**(a)** Perform the following commands:
+```{r}
+set.seed(1)
+x1 = runif(100)
+x2 = 0.5 * x1 + rnorm(100) / 10
+y = 2 + 2 * x1 + 0.3 * x2 + rnorm(100)
+```
+
+**(b)** What is the correlation between `x1` and `x2`? Create a scatterplot displaying the relationship between the variables.
+```{r}
+cor(x1, x2)
+df <- data.frame(x1 = x1, x2 = x2, y = y)
+ggplot(df, aes(x = x2, y = x1)) +
+  geom_point()
+```
+La correlación entre `x1` y `x2` es 0.835.
+
+**(c)** Using this data, fit a least squares regression to predict `y` using `x1` and `x2`. Describe the results 
+obtained. What are $\hat{\beta_0}$, $\hat{\beta_1}$, and $\hat{\beta_2}$? How do these relate to the true 
+$\beta_0$, $\beta_1$, and $\beta_2$? Can you reject the null hypothesis $H_0 : \beta_1 = 0$? How about the null 
+hypothesis $H_0 : \beta_2 = 0$
+```{r}
+model_14c <- lm(y ~ x1 + x2)
+summary(model_14c)
+```
+Los aproximados son $\hat{\beta_1} = 1.4396$ y $\hat{\beta_2} = 1.0097$, lejanos de los verdaderos valores
+$\beta_1 = 2$ $\beta_2 = 0.3$. Más aún, no puede rechazarse ninguna de ambas hipótesis nulas (aunque de hacerlo,
+sería más prudente rechazar $\beta_1 = 0$).
+
+**(d)**  Now fit a least squares regression to predict `y` using only `x1`. Comment on your results. Can you reject the null hypothesis $H_0 : \beta_1 = 0$?
+```{r}
+model_13d <- lm(y ~ x1)
+summary(model_13d)
+```
+En este caso, el coeficiente $\beta_1$ fue aproximado mucho mejor, con una diferencia de solo 0.0241. Además,
+aquí definitivamente puede rechazarse la hipótesis nula.
+
+**(e)**  Now fit a least squares regression to predict `y` using only `x2`. Comment on your results. Can you reject the null hypothesis $H_0 : \beta_2 = 0$?
+```{r}
+model_13e <- lm(y ~ x2)
+summary(model_13e)
+```
+La aproximación de $\beta_2$ fue *muy* mala; $\hat{\beta_2}$ es casi diez veces más grande. Sin emabrgo, puede
+rechazarse la hipótesis nula.
+
+**(f)**  Do the results obtained in (c)–(e) contradict each other? Explain your answer.
+
+Los resultados no se contradicen. Observemos primero que como `x1` y `x2` están fuertemente correlacionados, 
+incluir solo a `x2` en el modelo da una aproximación del coeficiente $\beta_2$ mucho más alta. Esto se debe a que
+la correlación etnre ambas variables hace que cuando `x2` crece, también lo hace `x1`, y por tanto `y`. Sin
+embargo, el modelo con solo `x2` no tiene manera de atribuirle al cambio en `x1` el crecimiento en `y` y por
+eso aumenta la estimación de $\beta_2$.
+
+Ahora bien, los valores p disminuyen significativamente cuando solo se considera uno de los dos predictores en el 
+modelo. Para entender esto, observemos el error estándar de los tres modelos:
+
+**Modelo 1:** Cuando se incluyen `x1` y `x2`, el error para los coeficientes es respectivamente 0.72 y 1.31, que
+resulta en estadísticas t de 1.99 y 0.89 respectivamente. 
+
+**Modelo 2:** Cuando se incluye solo `x1`, el error estándar de la pendiente es 0.39, con estadística t de
+4.98
+
+**Modelo 3:** El error estandar es 0.63, con estadística t de 4.58
+
+Con estas tres observaciones podemos entender el cambio en los valores p. Como la estadística t se calcula usando
+$$ t = \frac{\hat{\beta_k}}{SE(\hat{\beta_k})}$$
+que el error aumente en la presencia de los dos predictores colineales lleva a una disminución en la estadística
+t. Luego, los valores de t son menos "extremos" en la presencia de colinealidad, lo que lleva a valores p mayores
+y a que erroneamente aceptemos la hipótesis nula $H_0 : \beta_k = 0$
+
+**(g)** Now suppose we obtain one additional observation, which was unfortunately mismeasured.
+```{r}
+x1 <- c(x1, 0.1)
+x2 <- c(x2, 0.8)
+y <- c(y, 6)
+```
+
+Re-fit the linear models from (c) to (e) using this new data. What effect does this new observation have on the 
+each of the models? In each model, is this observation an outlier? A high-leverage point? Both? Explain your 
+answers.
+
+```{r}
+model_14gi <- lm(y ~ x1 + x2)
+summary(model_14gi)
+autoplot(model_14gi)
+```
+En el modelo usando los dos predictores, el nuevo punto tiene alto apalancamiento, cosa visible en la gráfica
+cuatro arriba. Sin embargo, no es un *outlier*.
+Su residuo es de 1.707709; hay aún 7 puntos con mayor residuo y podemos ver en el siguiente diagrama que
+no sobresale de la distribución de los residuos
+```{r}
+data.frame(res = model_14gi$residuals) %>%
+ggplot(aes(x = 1, y = res)) +
+  geom_boxplot()
+```
+```{r}
+model_14gii <- lm(y ~ x1)
+summary(model_14gii)
+autoplot(model_14gii)
+```
+En el modelo con solo `x1`, el punto no es de alto apalancamiento. Es claro por lo anterior que en ninguno va 
+a ser outlier, pero en este no es de apalancamiento porque su valor de `x1` no está fuera de lo común. De aquí
+concluimos que en el anterior era de apalancamiento por un valor inusualmente alto de `x2`, por lo que en el 
+modelo siguiente sí sería de apalancamiento.
+Corroboramos esta afirmación con los siguientes diagramas de caja:
+```{r}
+data.frame(x1 = x1, x2 = x2) %>%
+  gather(predictor, value) %>%
+  ggplot(aes(x = 1, y = value)) +
+  geom_boxplot() +
+  facet_grid(. ~ predictor)
+```
+
+##Question 15
+This problem involves the `Boston` data set, which we saw in the lab for this chapter. We will now try to predict 
+per capita crime rate using the other variables in this data set. In other words, per capita crime rate is the 
+response, and the other variables are the predictors.
+
+**(a)** For each predictor, fit a simple linear regression model to predict the response. Describe your results. In which of the models is there a statistically significant association between the predictor and the response? Create some plots to back up your assertions.
+```{r}
+Boston %>%
+  select(-crim) %>%
+  names() %>%
+  paste('crim ~ ', .) %>%
+  map(as.formula) %>%
+  map(lm, data = Boston) %>%
+  map(summary)
+```
+En las variables `zn`, `indus`, `nox`, `rm`, `age`, `dis`, `rad`, `tax`, `ptratio`, `balck`, `lstat` y `medv`
+podemos rechazar la hipótesis nula.
+
+**(b)** Fit a multiple regression model to predict the response using all of the predictors. Describe your results. For which predictors can we reject the null hypothesis $H_0 : \beta_j = 0$?
+```{r}
+model_q15b <- lm(crim ~ ., data = Boston)
+summary(model_q15b)
+```
+En el modelo completo, solo con `dis` y `rad` podemos descartar la hipótesis nula por completo. `medv` tal vez.
+
+**(c)** How do your results from (a) compare to your results from (b)? Create a plot displaying the univariate 
+regression coefficients from (a) on the x-axis, and the multiple regression coefficients from (b) on the y-axis. 
+That is, each predictor is displayed as a single point in the plot. Its coefficient in a simple linear 
+regression model is shown on the x-axis, and its coefficient estimate in the multiple linear regression model is 
+shown on the y-axis.
+
+```{r}
+predictor <- Boston%>%
+  select(-crim) %>%
+  names()
+
+coefs_single <- predictor %>%
+  paste('crim ~ ', .) %>%
+  map(as.formula) %>%
+  map(lm, data = Boston) %>%
+  map(coef) %>%
+  transpose() 
+
+names(coefs_single) <- c("intercepts", "predictors")
+coefs_x <- unlist(coefs_single$predictors)
+
+coefs_y <- model_q15b$coefficients[-1]
+
+df <- data.frame(x = coefs_x, y = coefs_y, label = predictor)
+
+ggplot(df, aes(x = coefs_x, y = coefs_y, label = label)) +
+  geom_text()
+
+```
+El coeficiente de `nox` (concentración de óxido nitríco en partes por diez millones) es el que sufre un mayor
+cambio; pasa de más de 30 en el modelo individual a menos de -10 en el que tiene a todos.
+
+**(d)** Is there evidence of non-linear association between any of the predictors and the response? To answer this question, for each predictor $X$, fit a model of the form 
+$$ Y = \beta_0 + \beta_1X + \beta_2X^2 + \beta_3X^3 + \epsilon$$
+```{r}
+Boston %>% 
+  select(-c(chas, crim)) %>%
+  names() %>%
+  paste('crim ~ poly(',., ', 3)', sep = "") %>%
+  map(as.formula) %>%
+  map(lm, data = Boston) %>%
+  map(summary)
+```
+Las variables `indus`, `nox`, `dis` y `medv` presentan evidencia de no-linealidad hasta grado tres, mientras que
+`rm`, `age` y `tax` lo hacen hasta grado dos.

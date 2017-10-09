@@ -1,0 +1,182 @@
+---
+title: "ISLR 6: Exercises"
+output: html_notebook
+---
+#Conceptual
+##Question 1
+We perform best subset, forward stepwise, and backward stepwise selection on a single data set. For each approach, 
+we obtain $p + 1$ models, containing $0, 1, 2, \dots, p$ predictors. Explain your answers:
+
+**(a)** Which of the three models with $k$ predictors has the smallest _training_ RSS?
+By construction, best subset selection has the smallest training RSS; it is _defined_ as the $k$-predictor model 
+with lowest RSS; the other two are bound to previously chosen predictors if $k \neq 1$
+
+**(b)** Which of the three models with $k$ predictors has the smallest test RSS?
+There's no way to tell. Best subset might be the one if the test data is somewhat similar to the training data, but
+just out of luck, any one might be better with the training data.
+
+**(c)** True or False:
+  **i.**  The predictors in the $k$-variable model identified by forward stepwise are a subset of the predictors 
+  in the $(k+1)$-variable model identified by forward stepwise selection.
+  True. The $(k+1)$-variable model is obtained by iterating over all unused predictors and choosing the one that
+  improves the model.
+  **ii.**The predictors in the $k$-variable model identified by backward stepwise are a subset of the predictors 
+  in the $(k+1)$-variable model identified by backward stepwise selection.
+  True. The least important one is removed.
+  **iii.** The predictors in the $k$-variable model identified by backward stepwise are a subset of the predictors 
+  in the $(k+1)$-variable model identified by forward stepwise selection.
+  False. It would only be the case if a low p-value (important in backward selection) corresponded to lowering 
+  RMSE (important in forward selection) which is not always the case.
+  **iv.** The predictors in the $k$-variable model identified by forward stepwise are a subset of the predictors in
+  the $(k+1)$-variable model identified by backward stepwise selection.
+  False. There is no reason why this would be necessary the case unless what stated in (iii) were true.
+  **v.** The predictors in the $k$-variable model identified by best subset are a subset of the predictors in the 
+  $(k+1)$-variable model identified by best subset selection.
+  False. Among other things, correlation between variables can cause a variable in the $k$-variable model to
+  become redundant in the $k+1$ model.
+
+##Question 2
+For parts (a) through (c), indicate which of i. through iv. is correct. Justify your answer.
+
+**(a)** The lasso, relative to least squares, is less flexible and hence will give improved prediction accuracy   
+when its increase in bias is less than its decrease in variance.
+**(b)** Ridge regression, relative to least squares, is less flexible and hence will give improved prediction 
+accuracy when its increase in bias is less than its decrease in variance.
+**(c)** Non-linear methods, relative to least squares, are more flexible and hence will give improved prediction
+accuracy when their increase in variance is less than their decrease in bias.
+  
+
+##Question 3
+Suppose we estimate the regression coefficients in a linear regression model by minimizing
+\[
+\sum_{i=1}^n \left( y_i-\beta_0-\sum_{j=1}^p \beta_j x_{ij} \right)^2 \\ \\
+\text{subject to} \ \ \|\beta\|_1 \leq s
+\]
+for a particular value of s. For parts (a) through (e), indicate which of i. through v. is correct. Justify your 
+answer.
+
+**(a)** As we increase s from 0, the training RSS will steadily decrease; as $s \rightarrow \infty$, 
+$\beta^L \rightarrow \beta$, where $\beta$ is the least squares coefficient vector.
+**(b)** As we increase s from 0, the test RSS will decrease initially, and then eventually start increasing in 
+a U shape, because at first the increase in bias will be less than the decrease in variance. 
+**(c)** As we increase s from 0, the variance will steadily increase.
+**(d)** As we increase s from 0, the squared bias will steadily decrease
+**(e)** As we increase s from 0, the training irreducible error will remain constant.
+
+##Question 4
+Suppose we estimate the regression coefficients in a linear regression model by minimizing
+\[
+\sum_{i=1}^n \left( y_i-\beta_0-\sum_{j=1}^p \beta_j x_{ij} \right)^2 + \lambda \|\beta\|_2^2
+\]
+for a particular value of $\lambda$. For parts (a) through (e), indicate which of i. through v. is correct. 
+Justify your answer.
+
+**(a)** As we increase $\lambda$ from 0, the training RSS will steadily increase. When $\lambda = 0$ we have plain
+least squares regression with the optmal training RSS; so increasing the penalty on the coefficients will also
+increase training RSS.
+**(b)** As we increase $\lambda$ from 0, the test RSS will will decrease initially, and then eventually start 
+increasing in  a U shape, because at first the increase in bias will be less than the decrease in variance. 
+**(c)** As we increase $\lambda$ from 0, the variance will steadily decrease.
+**(d)** As we increase $\lambda$ from 0, the squared bias will steadily increase.
+**(e)** As we increase $\lambda$ from 0, the training irreducible error will remain constant.
+
+##Question 5
+It is well-known that ridge regression tends to give similar coefficient values to correlated variables, whereas 
+the lasso may give quite different coefficient values to correlated variables. We will now explore this property 
+in a very simple setting.
+
+Suppose that $n = 2, \ p = 2, \ x_{11} = x_{12}, x_{21} = x_{22}$. Furthermore, supposethat $y_1+y_2 =0$ and
+$x_{11}+x_{21} =0$ and $x_{12}+x_{22} =0$, so that the estimate for the intercept in a least squares, ridge 
+regression, or lasso model is zero: $\hat{\beta_0} = 0$.
+**(a)** Write out the ridge regression optimization problem in this setting.
+For simplicity, let $x_1 = x_{11} = x_{12}$, let $x_2 = x_{21} = x_{22}$. Wee seek to solve
+\[
+\min \{ (y_1-x_1(\beta_1+\beta_2))^2 + (y_2-x_2(\beta_1+\beta_2))^2 + \lambda(\beta_1^2+\beta_2^2) \}
+\]
+**(b)** Argue that in this setting, the ridge coefficient estimates satisfy $\hat{\beta_1} = \hat{\beta_2}$
+Let $f: \mathbb{R}^2 \to \mathbb{R}$as to rewrite the problem as $\min_\beta f(\beta)$.
+It is easy to see that
+\[
+f_{\beta_1} = 2(y_1-x_1(\beta_1+\beta_2))(-x_1) + 2(y_2-x_2(\beta_1+\beta_2))(-x_2) + 2\lambda\beta_1
+\]
+and
+\[
+f_{\beta_2} = 2(y_1-x_1(\beta_1+\beta_2))(-x_1) + 2(y_2-x_2(\beta_1+\beta_2))(-x_2) + 2\lambda\beta_2
+\]
+Thus, substracting both expresions, $2\lambda(\beta_1-\beta_2)=0$ and the result follows.
+
+**(c)** Write out the lasso optimization problem in this setting.
+\[
+\min \min \{ (y_1-x_1(\beta_1+\beta_2))^2 + (y_2-x_2(\beta_1+\beta_2))^2 \\
+\text{subject to} \ \ \|\beta\|_1 \leq s_\lambda
+\]
+**(d)** Argue that in this setting, the lasso coefficients are not unique.
+It is easy to see that the solution to the unconstrained optimization problem is 
+$\{\beta \in \mathbb{R^2} : \beta_1+\beta_2= \frac{y_1}{x_1}$
+More so, because of the given conditions on $\bf{x}$ and $\bf{y}$, this is equivalent to minimizing
+$g(\beta) = y_1^2+x_1^2(\beta_1+\beta_2)$, a function whose level sets are two parallel lines with slope -1.
+Thus, the solution is the intersection of these two sets, which are the two negatively sloped edges of the 
+$\|\cdot\|_1$-ball.
+
+##Question 6
+We will now explore (6.12) and (6.13) further.
+**(a)**Consider (6.12) with $p = 1$. For some choice of $y_1$ and $\lambda>0$, plot (6.12) as a function of 
+$\beta_1$ Your plot should confirm that (6.12) is solved by (6.14).
+```{r}
+y <- 3
+lambda <- 5
+beta <- seq(from = -10, to = 10, by = 0.1)
+theo_sol <- y/(1+lambda)
+ridge <- (y-beta)^2 + lambda*beta^2
+ggplot(data_frame(x = beta, y = ridge), aes(x = x, y = y)) +
+  geom_smooth() +
+  geom_point(data = data_frame(x = theo_sol, y = (y-theo_sol)^2 + lambda*theo_sol^2), col = 'red')
+```
+
+**(b)** Consider (6.13) with $p = 1$. For some choice of $y_1$ and $\lambda>0$, plot (6.13) as a function of 
+$\beta_1$ Your plot should confirm that (6.13) is solved by (6.15).
+```{r}
+y <- 3
+lambda <- 1
+beta <- seq(from = -10, to = 10, by = 0.1)
+theo_sol <- y - lambda/2
+lasso <- (y-beta)^2 + lambda*abs(beta)
+ggplot(data_frame(x = beta, y = lasso), aes(x = x, y = y)) +
+  geom_point(col = 'blue') +
+  geom_point(data = data_frame(x = theo_sol, y = (y-theo_sol)^2 + lambda*abs(theo_sol)), col = 'red')
+```
+
+#Applied
+##Question 8
+In this exercise, we will generate simulated data, and will then use this data to perform best subset selection.
+**(a)** Use the `rnorm()` function to generate a predictor X of length n = 100, as well as a noise vector ε of 
+length $n = 100$.
+```{r}
+x <- rnorm(100)
+```
+
+**(b)** Generate a response vector Y of length $n = 100$ using a third degree polynomial of your choice and some
+error.
+```{r}
+y <- 5 - 3*x + pi*x^2 + x^3 + rnorm(100)
+```
+
+**(c)** Use the `regsubsets()` function to perform best subset selection in order to choose the best model 
+containing the predictors $X, X^2, \cdots , X^{10}$. What is the best model obtained according to $C_p, BIC$, and 
+adjusted $R^2$? Show some plots to provide evidence for your answer, and report the coefficients of the best model 
+obtained.
+```{r}
+data <- data_frame(x = x, y = y)
+rfe_control <- rfeControl(functions = lmFuncs,
+                          method = 'repeatedcv', 
+                          number = 10, 
+                          repeats = 5)
+data_mm <- model.matrix(y~poly(x, degree = 10), data = data)[,-1]
+
+caret_fit <- rfe(data_mm,
+                 y = data$y,
+                 sizes = c(1:10),
+                 rfeControl = rfe_control)
+
+```
+
